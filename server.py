@@ -20,6 +20,9 @@ import sys
 import time
 from typing import Optional, List, Dict, Any
 from enum import Enum
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
+from starlette.requests import Request
 
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from mcp.server.fastmcp import FastMCP
@@ -597,8 +600,44 @@ def _format_results(papers: List[Dict]) -> str:
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
     """Health check endpoint for Render/cloud monitoring."""
-    from starlette.responses import JSONResponse
     return JSONResponse({"status": "ok", "tools": len(mcp._tool_manager._tools)})
+
+
+# ---------------------------------------------------------------------------
+# Simple Bearer Token Auth Middleware
+# ---------------------------------------------------------------------------
+class AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # Always allow health check
+        if request.url.path == "/health":
+            return await call_next(request)
+
+        # Check for MCP_API_KEY
+        expected_key = os.environ.get("MCP_API_KEY")
+        if not expected_key:
+            # If no key is configured, allow all (public but functional)
+            return await call_next(request)
+
+        # Validate Authorization header
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return JSONResponse(
+                {"error": "Unauthorized: Missing or invalid Authorization header"},
+                status_code=401
+            )
+
+        token = auth_header.replace("Bearer ", "").strip()
+        if token != expected_key:
+            return JSONResponse(
+                {"error": "Unauthorized: Invalid API key"},
+                status_code=401
+            )
+
+        return await call_next(request)
+
+# Add middleware to the streamable_http_app
+app = mcp.streamable_http_app()
+app.add_middleware(AuthMiddleware)
 
 
 # ---------------------------------------------------------------------------
@@ -608,8 +647,10 @@ if __name__ == "__main__":
     transport = os.environ.get("MCP_TRANSPORT", "stdio")
 
     if transport == "streamable_http":
+        import uvicorn
         port = int(os.environ.get("PORT", "8000"))
         print(f"Starting Academic Search MCP (HTTP) on port {port}...", file=sys.stderr)
-        mcp.run(transport="streamable_http", host="0.0.0.0", port=port)
+        # Use uvicorn to run the internal app directly, which allows middleware to work correctly
+        uvicorn.run(app, host="0.0.0.0", port=port)
     else:
         mcp.run()  # stdio for local use

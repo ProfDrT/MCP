@@ -16,3 +16,5 @@ services:
         sync: false
       - key: SEMANTIC_SCHOLAR_API_KEY
         sync: false  # Optional: for higher rate limits
+      - key: MCP_API_KEY
+        generateValue: true  # Render will generate a random key if not set
