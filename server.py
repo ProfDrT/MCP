@@ -618,18 +618,22 @@ class AuthMiddleware(BaseHTTPMiddleware):
             # If no key is configured, allow all (public but functional)
             return await call_next(request)
 
-        # Validate Authorization header
+        # 1. Try Authorization header
+        token = None
         auth_header = request.headers.get("Authorization")
-        if not auth_header or not auth_header.startswith("Bearer "):
-            return JSONResponse(
-                {"error": "Unauthorized: Missing or invalid Authorization header"},
-                status_code=401
-            )
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.replace("Bearer ", "").strip()
+        
+        # 2. Try query parameter (for clients that don't support custom headers in UI)
+        if not token:
+            token = request.query_params.get("api_key")
 
-        token = auth_header.replace("Bearer ", "").strip()
-        if token != expected_key:
+        if not token or token != expected_key:
             return JSONResponse(
-                {"error": "Unauthorized: Invalid API key"},
+                {
+                    "error": "Unauthorized: Missing or invalid API key. "
+                             "Use 'Authorization: Bearer <key>' header or '?api_key=<key>' query parameter."
+                },
                 status_code=401
             )
 
