@@ -1,0 +1,18 @@
+# Render Blueprint — deploy with "New > Blueprint" in Render Dashboard
+# Docs: https://docs.render.com/blueprint-spec
+
+services:
+  - type: web
+    name: academic-search-mcp
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: MCP_TRANSPORT
+        value: streamable_http
+      - key: OPENALEX_MAILTO
+        sync: false  # You'll set this in the Render dashboard
+      - key: CROSSREF_MAILTO
+        sync: false
+      - key: SEMANTIC_SCHOLAR_API_KEY
+        sync: false  # Optional: for higher rate limits

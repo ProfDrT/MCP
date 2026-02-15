@@ -1,0 +1,12 @@
+[project]
+name = "academic-search-mcp"
+version = "1.0.0"
+description = "Local MCP server exposing academic paper search APIs (Semantic Scholar, OpenAlex, CrossRef, arXiv)"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.0.0",
+    "pydantic>=2.0.0",
+]
+
+[project.scripts]
+academic-search-mcp = "server:mcp.run"
